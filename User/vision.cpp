@@ -59,14 +59,13 @@ void Vision::RecvUpdate(const uint8_t* buf) {
             pitch_hub_increment = pitch_hub_increment_temp;
 
             //  ============================== ¾ø¶Ô½Ç¶È add in 2024/7/22 ============================
-            //if (vision.aim_type_ == kArmor) {
-            //    yaw_target_euler = -yaw_increament + ch110.yaw_integral_;
-            //    pitch_target_euler = -pitch_increment + ch110.roll_;
-            //    ;
-            //} else {
-            //    yaw_target_euler = -yaw_hub_increment + ch110.yaw_integral_;
-            //    pitch_target_euler = -pitch_hub_increment + ch110.roll_;
-            //}
+            if (vision.aim_type_ == kArmor) {
+               yaw_target_euler = -yaw_increament + ch110.yaw_integral_;
+               pitch_target_euler = -pitch_increment + ch110.roll_;
+            } else {
+               yaw_target_euler = -yaw_hub_increment + ch110.yaw_integral_;
+               pitch_target_euler = -pitch_hub_increment + ch110.roll_;
+            }
             //  ====================================================================================
         }
 

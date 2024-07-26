@@ -34,3 +34,4 @@ Vision vision;                           //视觉
 EmpiricalGravityCompensator EGC(-3000);  //重力补偿
 Communicator comm;                       //板间通信
 RotateFeedForward RFF(1.7);              //小陀螺时YAW轴前馈
+ErrorHandle error_handle;                //错误处理

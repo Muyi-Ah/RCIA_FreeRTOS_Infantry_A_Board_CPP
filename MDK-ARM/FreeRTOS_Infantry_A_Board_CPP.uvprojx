@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F427xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../User;../../../../AppData/Local/Keil_v5/ARM/ARMCLANG/include;../../../../AppData/Local/Arm/Packs/ARM/CMSIS-DSP/1.15.0/Include</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../User;../../../../AppData/Local/Keil_v5/ARM/ARMCLANG/include;../../../../AppData/Local/Arm/Packs/ARM/CMSIS-DSP/1.15.0/Include;../User/Task</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -645,11 +645,6 @@
               <FilePath>..\User\error_handle.cpp</FilePath>
             </File>
             <File>
-              <FileName>gimbal.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\User\gimbal.cpp</FilePath>
-            </File>
-            <File>
               <FileName>gravity_compensation.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\User\gravity_compensation.cpp</FilePath>
@@ -695,19 +690,34 @@
               <FilePath>..\User\vision.cpp</FilePath>
             </File>
             <File>
+              <FileName>rotate_feedforward.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\User\rotate_feedforward.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>User/Task</GroupName>
+          <Files>
+            <File>
               <FileName>communication_task.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\User\communication_task.cpp</FilePath>
+              <FilePath>..\User\Task\communication_task.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>gimbal.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\User\Task\gimbal.cpp</FilePath>
             </File>
             <File>
               <FileName>vision_task.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\User\vision_task.cpp</FilePath>
+              <FilePath>..\User\Task\vision_task.cpp</FilePath>
             </File>
             <File>
-              <FileName>rotate_feedforward.cpp</FileName>
+              <FileName>error_handle_task.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\User\rotate_feedforward.cpp</FilePath>
+              <FilePath>..\User\Task\error_handle_task.cpp</FilePath>
             </File>
           </Files>
         </Group>

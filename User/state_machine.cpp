@@ -10,11 +10,16 @@ void StateMachine::HandleEvent(enum Event event) {
                 case kEventEnterOperate:  //ÇÐ»»µ½ÔËÐÐ
                     main_state_ = kOperate;
                     break;
-								
+
                 case kEventEnterHalt:  //ÇÐ»»µ½Í£Ö¹
                     main_state_ = kHalt;
-								
-								case kEventSwitchSubMode11:  //ÇÐ»»µ½×Ó×´Ì¬11
+                    break;
+
+                case kEventSwitchSubMode00:  //ÇÐ»»µ½×Ó×´Ì¬00
+                    sub_state_ = kSubMode00;
+                    break;
+
+                case kEventSwitchSubMode11:  //ÇÐ»»µ½×Ó×´Ì¬11
                     sub_state_ = kSubMode11;
                     break;
 
@@ -67,8 +72,12 @@ void StateMachine::HandleEvent(enum Event event) {
                 case kEventEnterHalt:  //ÇÐ»»µ½Í£Ö¹
                     main_state_ = kHalt;
                     break;
-								
-								case kEventSwitchSubMode11:  //ÇÐ»»µ½×Ó×´Ì¬11
+
+                case kEventSwitchSubMode00:  //ÇÐ»»µ½×Ó×´Ì¬00
+                    sub_state_ = kSubMode00;
+                    break;
+
+                case kEventSwitchSubMode11:  //ÇÐ»»µ½×Ó×´Ì¬11
                     sub_state_ = kSubMode11;
                     break;
 
@@ -123,6 +132,10 @@ void StateMachine::HandleEvent(enum Event event) {
                     sub_state_ = kSubStateNone;  //×Ó×´Ì¬Ò²±»ÖØÖÃ
                     break;
 
+                case kEventSwitchSubMode00:  //ÇÐ»»µ½×Ó×´Ì¬00
+                    sub_state_ = kSubMode00;
+                    break;
+
                 case kEventSwitchSubMode11:  //ÇÐ»»µ½×Ó×´Ì¬11
                     sub_state_ = kSubMode11;
                     break;
@@ -160,14 +173,12 @@ void StateMachine::HandleEvent(enum Event event) {
                     break;
 
                 default:
-                    /*ErrorHandle(kSwitchError);*/
                     break;
             }
 
             break;
 
         default:
-            /*ErrorHandle(kSwitchError);*/
             break;
     }
 }

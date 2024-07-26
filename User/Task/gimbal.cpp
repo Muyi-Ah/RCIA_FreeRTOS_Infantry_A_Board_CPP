@@ -23,6 +23,7 @@ float vision_pitch_coefficient = 0.015f;
 
 static void ORE_Solve();
 void HaltFunction();
+void SubMode00Function();
 void SubMode11Function();
 void SubMode12Function();
 void SubMode13Function();
@@ -95,6 +96,15 @@ void GimbalTask(void* argument) {
                         motor_205.is_enable_ = false;
                         motor_206.is_enable_ = false;
                         state_machine.HandleEvent(kEventEnterHalt);
+                        break;
+
+                    case kSubMode00:  //切换到接收机断联模式
+                        SubMode00Function();
+                        motor_201.is_enable_ = true;
+                        motor_202.is_enable_ = true;
+                        motor_204.is_enable_ = false;
+                        motor_205.is_enable_ = false;
+                        motor_206.is_enable_ = false;
                         break;
 
                     case kSubMode11:  //切到维护模式
@@ -233,7 +243,6 @@ static void RemoteTargetHandle() {
 }
 
 void HaltFunction() {
-
     //该阶段下YAW的目标值需与实际值一致
     yaw_target_euler = ch110.yaw_integral_;
     /*pitch_target_euler = clamp(ch110.roll_, -5.0f, 30.0f);*/
@@ -241,7 +250,15 @@ void HaltFunction() {
     //该阶段下拨盘的目标值需与实际值一致
     trigger_target_pos = motor_204.encoder_integral_;
 }
+void SubMode00Function() {
+    friction_target_rpm = 0;
 
+    //该阶段下YAW的目标值需与实际值一致
+    yaw_target_euler = ch110.yaw_integral_;
+
+    //该阶段下拨盘的目标值需与实际值一致
+    trigger_target_pos = motor_204.encoder_integral_;
+}
 void SubMode11Function() {}
 void SubMode12Function() {
     vision.is_use_ = false;  //视觉使用标志位置0
@@ -452,6 +469,12 @@ void TimeStampClear() {
 
 void SubStateUpdate() {
     switch (dr16.remote_.s1_) {
+        case 0:
+            if (dr16.remote_.s2_ == 0) {
+                state_machine.HandleEvent(kEventSwitchSubMode00);
+            }
+            break;
+
         case 1:
             switch (dr16.remote_.s2_) {
                 case 1:
