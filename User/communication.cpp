@@ -1,5 +1,6 @@
 #include "communication.hpp"
 #include <cstdint>
+#include "gimbal.hpp"
 #include "string.h"
 #include "uart.hpp"
 #include "variables.hpp"
@@ -45,23 +46,31 @@ void Communicator::RecvUpdate(const uint8_t* buf) {
     }
 }
 
+uint8_t len;
 float theta;
 uint8_t send_str2[(2 + 1) * 4] = {0};
-uint8_t buf[sizeof(dr16) + sizeof(float) + sizeof(bool) + sizeof(enum AimType) + 4]{0};
+uint8_t buf[sizeof(dr16) + sizeof(float) + sizeof(bool) + sizeof(enum AimType) + sizeof(int16_t) +
+            sizeof(bool) + 4]{0};
 void Communicator::Send() {
 
     theta = CalculateTheta(motor_206.encoder_value_, kYawInitialEncoderValue);
 
-//    *((float*)&send_str2[0 * 4]) = (float)(vision.origin_pitch_hub / 1000.0f);
-//    *((float*)&send_str2[1 * 4]) = (float)(testTD.Compute(vision.origin_pitch_hub / 1000.0f));
-//    *((uint32_t*)&send_str2[sizeof(float) * (2)]) = 0x7f800000;
-//    HAL_UART_Transmit_DMA(&huart6, send_str2, sizeof(float) * (2 + 1));
+    // *((float*)&send_str2[0 * 4]) = (float)(vision.pitch_hub_increment_temp);
+    // *((float*)&send_str2[1 * 4]) = (float)(vision.yaw_hub_increment_temp);
+    // *((uint32_t*)&send_str2[sizeof(float) * (2)]) = 0x7f800000;
+    // HAL_UART_Transmit_DMA(&huart6, send_str2, sizeof(float) * (2 + 1));
 
     memcpy(buf, &dr16, sizeof(dr16));
     memcpy(buf + sizeof(dr16), &theta, sizeof(theta));
     memcpy(buf + sizeof(dr16) + sizeof(theta), &vision.is_use_, sizeof(vision.is_use_));
     memcpy(buf + sizeof(dr16) + sizeof(theta) + sizeof(vision.is_use_), &vision.aim_type_,
            sizeof(vision.aim_type_));
+    memcpy(buf + sizeof(dr16) + sizeof(theta) + sizeof(vision.is_use_) + sizeof(vision.aim_type_),
+           &friction_target_rpm, sizeof(friction_target_rpm));
+    memcpy(buf + sizeof(dr16) + sizeof(theta) + sizeof(vision.is_use_) + sizeof(vision.aim_type_) +
+               sizeof(friction_target_rpm),
+           &vision.is_aimed_, sizeof(vision.is_aimed_));
     AppendAccumulationCheckSum(buf, sizeof(buf));
     HAL_UART_Transmit_DMA(kCommUart, buf, sizeof(buf));
+    len = sizeof(buf);
 }

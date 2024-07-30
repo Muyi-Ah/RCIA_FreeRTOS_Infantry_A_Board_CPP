@@ -694,6 +694,11 @@
               <FileType>8</FileType>
               <FilePath>..\User\rotate_feedforward.cpp</FilePath>
             </File>
+            <File>
+              <FileName>LPF.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\User\LPF.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

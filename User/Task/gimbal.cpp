@@ -1,4 +1,5 @@
 #include "gimbal.hpp"
+#include "FreeRTOS.h"
 #include "clamp.hpp"
 #include "cmsis_os2.h"
 #include "stdint.h"
@@ -9,7 +10,7 @@
 /*  =========================== 常量定义 ===========================  */
 
 /*constexpr */ auto kRemoteDeadBand = 10;               //遥控器死区
-/*constexpr */ auto kRemoteYawCoefficient = 0.0004f;    //遥控器YAW响应系数
+/*constexpr */ auto kRemoteYawCoefficient = 0.0006f;    //遥控器YAW响应系数
 /*constexpr */ auto kRemotePitchCoefficient = 0.0001f;  //遥控器PITCH响应系数
 /*constexpr */ auto kMouseYawCoefficient = 0.0003f;     //鼠标YAW响应系数
 /*constexpr */ auto kMousePitchCoefficient = 0.0002f;   //鼠标PITCH响应系数
@@ -214,7 +215,6 @@ void GimbalTask(void* argument) {
                 break;
 
             default:
-                /* code */
                 break;
 
         }  // state machine
@@ -229,7 +229,12 @@ void GimbalTask(void* argument) {
 
         TimeStampClear();  //时间戳清除
 
-        osDelay(1);  //延时
+        // osDelay(1);  //相对时间
+
+        //绝对时间
+        auto tick = osKernelGetTickCount();
+        tick += pdMS_TO_TICKS(1);
+        osDelayUntil(tick);
     }
 }
 
@@ -282,13 +287,11 @@ void SubMode31Function() {
     friction_target_rpm = 0;
     vision.is_use_ = true;  //视觉使用标志位置1
 
-    //if (vision.aim_type_ == kArmor) {
-    //    yaw_target_euler -= vision.yaw_increament * vision_yaw_coefficient;
-    //    pitch_target_euler -= vision.pitch_increment * vision_pitch_coefficient;
-    //} else {
-    //    yaw_target_euler -= vision.yaw_hub_increment * vision_yaw_coefficient;
-    //    pitch_target_euler -= vision.pitch_hub_increment * vision_pitch_coefficient;
-    //}
+    if (dr16.remote_.wheel_ > (1684 - kRemoteDeadBand)) {
+        vision.aim_type_ = kArmor;
+    } else if (dr16.remote_.wheel_ < (364 + kRemoteDeadBand)) {
+        vision.aim_type_ = kRobotHub;
+    }
 }
 void SubMode32Function() {
     vision.is_use_ = true;  //视觉使用标志位置0
@@ -304,6 +307,12 @@ void SubMode32Function() {
     //1秒后
     else if ((current_timestamp - enter_mode_32_timestamp) >= 1000) {
         friction_target_rpm = kFrictionRpm;  //摩擦轮启动
+
+        if (dr16.remote_.wheel_ > (1684 - kRemoteDeadBand)) {
+            vision.aim_type_ = kArmor;
+        } else if (dr16.remote_.wheel_ < (364 + kRemoteDeadBand)) {
+            vision.aim_type_ = kRobotHub;
+        }
 
         if (vision.aim_type_ == kArmor) {
             //每500ms
@@ -553,15 +562,15 @@ static void blocking_check() {
     }
     //进行退弹
     if (blocking_flag) {
-        //退弹已超过50ms
-        if (HAL_GetTick() - blocking_time > 100) {
+        //退弹已超100ms
+        if (HAL_GetTick() - blocking_time > 200) {
             blocking_flag = 0;  //清除卡弹标志
         }
         //退弹过程中
         else {
             //实际值跟随目标值 防止恢复瞬间转大角度
             motor_204.encoder_integral_ = trigger_target_pos;
-            motor_204.input_ = 5000;  //反向输出
+            motor_204.input_ = 10000;  //反向输出
         }
     }
 }

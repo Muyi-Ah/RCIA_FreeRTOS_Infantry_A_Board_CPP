@@ -47,5 +47,4 @@ class DR16 {
     bool is_reply_;
 
     void DataUpdate(const uint8_t* buf);
-   private:
 };

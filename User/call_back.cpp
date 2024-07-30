@@ -91,10 +91,19 @@ void MainCallBack() {
 
     /*  =========================== YAW、PITCH电机控制 ===========================  */
 
+    //视觉作用于目标值时需要关闭前馈，不然会有高频振动（不太影响控制但会响声，会影响部件寿命）
+    if (vision.is_use_ && vision.is_aimed_ && vision.is_reply) {
+        pid_pos_205.k_feed_forward_ = 0;
+        pid_pos_206.k_feed_forward_ = 0;
+    } else {
+        pid_pos_205.k_feed_forward_ = kPitchFeedForward;
+        pid_pos_206.k_feed_forward_ = kYawFeedForward;
+    }
+
     //pitch外环PID
     /*auto euler_error_205 = clamp(pitch_target_euler, kLowestEuler, kHighestEuler) - ch110.roll_;*/
     auto temp_205 =
-        pid_pos_205.Compute(clamp(pitch_target_euler, kLowestEuler, kHighestEuler) - ch110.roll_);
+        pid_pos_205.Compute(clamp(pitch_target_euler, kLowestEuler, kHighestEuler), ch110.roll_);
 
     //pitch内环PID
     auto dji_motor_205_input = pid_vel_205.Compute(temp_205, ch110.y_velocity_);
