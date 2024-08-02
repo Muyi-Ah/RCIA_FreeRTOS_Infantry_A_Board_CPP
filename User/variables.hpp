@@ -13,7 +13,7 @@
 #include "tracking_differentiator.hpp"
 #include "vision.hpp"
 
-constexpr uint16_t kYawInitialEncoderValue = 2678;
+constexpr uint16_t kYawInitialEncoderValue = 6785;
 
 extern DR16 dr16;
 extern CH110 ch110;

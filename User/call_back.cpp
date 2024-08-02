@@ -68,6 +68,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
     }
 }
 
+extern uint8_t blocking_flag;
 void MainCallBack() {
     /*  =========================== 摩擦轮、拨盘电机控制 ===========================  */
 
@@ -81,13 +82,15 @@ void MainCallBack() {
     auto dji_motor_202_input = pid_vel_202.Compute(-friction_target_rpm, measure_rpm_202);
     motor_202.input_ = dji_motor_202_input;  //设置电机输出
 
-    //拨盘外环PID
-    auto temp_204 = pid_pos_204.Compute(trigger_target_pos, motor_204.encoder_integral_);
+    if (blocking_flag == 0) {
+        //拨盘外环PID
+        auto temp_204 = pid_pos_204.Compute(trigger_target_pos, motor_204.encoder_integral_);
 
-    //拨盘内环PID
-    auto measure_rpm_204 = td_204.Compute(motor_204.actual_rpm_);  //获取微分跟踪器滤波后转速
-    auto dji_motor_204_input = pid_vel_204.Compute(temp_204, measure_rpm_204);
-    motor_204.input_ = dji_motor_204_input;  //设置电机输出
+        //拨盘内环PID
+        auto measure_rpm_204 = td_204.Compute(motor_204.actual_rpm_);  //获取微分跟踪器滤波后转速
+        auto dji_motor_204_input = pid_vel_204.Compute(temp_204, measure_rpm_204);
+        motor_204.input_ = dji_motor_204_input;  //设置电机输出
+    }
 
     /*  =========================== YAW、PITCH电机控制 ===========================  */
 

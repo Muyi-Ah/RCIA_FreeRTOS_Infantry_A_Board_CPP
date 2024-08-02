@@ -2,6 +2,7 @@
 #include "FreeRTOS.h"
 #include "clamp.hpp"
 #include "cmsis_os2.h"
+#include "math.h"
 #include "stdint.h"
 #include "stdlib.h"
 #include "uart.hpp"
@@ -9,16 +10,18 @@
 
 /*  =========================== 常量定义 ===========================  */
 
-/*constexpr */ auto kRemoteDeadBand = 10;               //遥控器死区
-/*constexpr */ auto kRemoteYawCoefficient = 0.0006f;    //遥控器YAW响应系数
-/*constexpr */ auto kRemotePitchCoefficient = 0.0001f;  //遥控器PITCH响应系数
-/*constexpr */ auto kMouseYawCoefficient = 0.0003f;     //鼠标YAW响应系数
-/*constexpr */ auto kMousePitchCoefficient = 0.0002f;   //鼠标PITCH响应系数
-/*constexpr */ auto kShotsPerFire = 1;                  //每次射击弹丸数
-/*constexpr */ auto kFrictionRpm = 7000;                //摩擦轮转速
+constexpr auto kRemoteDeadBand = 10;               //遥控器死区
+constexpr auto kRemoteYawCoefficient = 0.0006f;    //遥控器YAW响应系数
+constexpr auto kRemotePitchCoefficient = 0.0001f;  //遥控器PITCH响应系数
+constexpr auto kMouseYawCoefficient = 0.0003f;     //鼠标YAW响应系数
+constexpr auto kMousePitchCoefficient = 0.0002f;   //鼠标PITCH响应系数
+constexpr auto kShotsPerFire = 2;                  //每次射击弹丸数
+constexpr auto kFrictionRpm = 7000;                //摩擦轮转速
 
-float vision_yaw_coefficient = 0.035f;
-float vision_pitch_coefficient = 0.015f;
+constexpr float vision_yaw_coefficient = 0.035f;
+constexpr float vision_pitch_coefficient = 0.015f;
+
+auto kShootingPeriod = 400;
 
 /*  =========================== 函数声明 ===========================  */
 
@@ -68,6 +71,9 @@ int16_t friction_target_rpm = 0;  //摩擦轮目标转速
 int32_t trigger_target_pos = 0;   //拨盘目标位置
 
 bool F_latch;
+bool press_left_latch;
+
+bool friction_is_enable;
 
 void GimbalTask(void* argument) {
     for (;;) {
@@ -227,6 +233,14 @@ void GimbalTask(void* argument) {
         yaw_target_euler =
             clamp(yaw_target_euler, (ch110.yaw_integral_ - 180.0f), (ch110.yaw_integral_ + 180.0f));
 
+        //判断摩擦轮是否开启
+        if (friction_target_rpm != 0 && abs(motor_201.actual_rpm_) > 1000 &&
+            abs(motor_202.actual_rpm_) > 1000) {
+            friction_is_enable = true;
+        } else {
+            friction_is_enable = false;
+        }
+
         TimeStampClear();  //时间戳清除
 
         // osDelay(1);  //相对时间
@@ -372,10 +386,11 @@ void SubMode33Function() {
         if (dr16.mouse_.press_left_ && friction_target_rpm != 0) {
             //每100ms
             if (vision.aim_type_ == kArmor) {
-                if (current_timestamp - mode_33_timestamp >= 50) {
+                if (current_timestamp - mode_33_timestamp >= kShootingPeriod || press_left_latch == false) {
                     //假设使用M2006 P36且拨盘每圈6颗弹丸 :8192*36/6=49152
                     trigger_target_pos -= 49152 * kShotsPerFire;
                     mode_33_timestamp = current_timestamp;
+                    press_left_latch = true;
                 }
             } else {
                 if (vision.fire_flag == true && vision.fire_latch == false) {
@@ -387,7 +402,10 @@ void SubMode33Function() {
                     vision.fire_latch = false;
                 }
             }
+        } else if (dr16.mouse_.press_left_ == 0) {
+            press_left_latch = false;
         }
+
         //鼠标右键按下且已瞄准目标
         if (dr16.mouse_.press_right_) {
             vision.is_use_ = true;  //视觉使用标志位置1
@@ -562,8 +580,8 @@ static void blocking_check() {
     }
     //进行退弹
     if (blocking_flag) {
-        //退弹已超100ms
-        if (HAL_GetTick() - blocking_time > 200) {
+        //退弹已超300ms
+        if (HAL_GetTick() - blocking_time > 300) {
             blocking_flag = 0;  //清除卡弹标志
         }
         //退弹过程中
