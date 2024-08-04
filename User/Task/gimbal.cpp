@@ -1,9 +1,10 @@
 #include "gimbal.hpp"
+#include "stdint.h"  //stdint.h需要在cmsis_armclang.h前面才能过编译
+#include <cmsis_armclang.h>
 #include "FreeRTOS.h"
 #include "clamp.hpp"
 #include "cmsis_os2.h"
 #include "math.h"
-#include "stdint.h"
 #include "stdlib.h"
 #include "uart.hpp"
 #include "variables.hpp"
@@ -43,6 +44,8 @@ static void blocking_check();
 
 /*  =========================== 变量定义 ===========================  */
 
+uint32_t reset_timestamp;
+
 //进入子模式时间戳
 uint32_t enter_mode_11_timestamp;
 uint32_t enter_mode_12_timestamp;
@@ -78,8 +81,10 @@ bool friction_is_enable;
 void GimbalTask(void* argument) {
     for (;;) {
 
+        //串口ORE消除
         ORE_Solve();
 
+        //子状态更新
         SubStateUpdate();
 
         //状态机
@@ -245,9 +250,10 @@ void GimbalTask(void* argument) {
 
         // osDelay(1);  //相对时间
 
-        //绝对时间
+        //获取当前系统tick用于绝对定时
         auto tick = osKernelGetTickCount();
         tick += pdMS_TO_TICKS(1);
+        //绝对定时
         osDelayUntil(tick);
     }
 }
@@ -386,7 +392,8 @@ void SubMode33Function() {
         if (dr16.mouse_.press_left_ && friction_target_rpm != 0) {
             //每100ms
             if (vision.aim_type_ == kArmor) {
-                if (current_timestamp - mode_33_timestamp >= kShootingPeriod || press_left_latch == false) {
+                if (current_timestamp - mode_33_timestamp >= kShootingPeriod ||
+                    press_left_latch == false) {
                     //假设使用M2006 P36且拨盘每圈6颗弹丸 :8192*36/6=49152
                     trigger_target_pos -= 49152 * kShotsPerFire;
                     mode_33_timestamp = current_timestamp;
@@ -422,6 +429,19 @@ void SubMode33Function() {
         //鼠标纵移
         if (dr16.mouse_.y_axis_) {
             pitch_target_euler += (float)(dr16.mouse_.y_axis_ * kMousePitchCoefficient);
+        }
+
+        if (dr16.KeyBoard_.key_.R_key) {
+            //获取系统时间戳，单位为ms
+            auto current_timestamp_for_reset = HAL_GetTick();
+            if (reset_timestamp == 0) {  //刚进入该模式
+                reset_timestamp = current_timestamp_for_reset;
+            } else if (current_timestamp_for_reset - reset_timestamp > 1000) {
+                __set_FAULTMASK(1);
+                NVIC_SystemReset();
+            }
+        } else if (dr16.KeyBoard_.key_.R_key == 0) {
+            reset_timestamp = 0;
         }
     }
 }
