@@ -4,3 +4,4 @@ MDK-ARM/*.uvguix.*
 .vs/
 .vscode/
 CppProperties.json
+*.code-workspace

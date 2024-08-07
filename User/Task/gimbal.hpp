@@ -2,7 +2,7 @@
 #include <cstdint>
 
 constexpr float kLowestEuler = -20.0f;
-constexpr float kHighestEuler = 14.7f;
+constexpr float kHighestEuler = 11.0f;
 
 extern float yaw_target_euler;
 extern float pitch_target_euler;

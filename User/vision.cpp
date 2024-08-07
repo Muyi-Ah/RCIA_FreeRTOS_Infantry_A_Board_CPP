@@ -1,20 +1,10 @@
 #include "vision.hpp"
 #include <stm32f4xx_hal.h>
+#include "gimbal.hpp"
 #include "math.h"
+#include "stdio.h"
 #include "uart.hpp"
 #include "variables.hpp"
-#include "gimbal.hpp"
-
-//  =============================== 原来的增量式 ================================
-//bool Vision::AbsoluteFilte() const {
-//    if (fabsf(yaw_increment_temp) < 10 && fabsf(pitch_increment_temp) < 10 &&
-//        fabsf(yaw_hub_increment_temp) < 10 && fabsf(pitch_hub_increment_temp)) {
-//        return true;
-//    } else {
-//        return false;
-//    }
-//}
-//  ============================================================================
 
 bool Vision::AbsoluteFilte() const {
     if (fabsf(yaw_increment_temp) < 25 && fabsf(pitch_increment_temp) < 25 &&
@@ -36,19 +26,28 @@ void Vision::RecvUpdate(const uint8_t* buf) {
                             (buf[19] - 48));
     fire_flag = buf[21] - 48;
 
+    //开销有点大了，肉眼可见的影响云台响应
+    // sscanf((const char*)buf, "[%4hu/%4hu/%4hu/%4hu/%1hu]", &origin_pitch_hub, &origin_yaw_hub_,
+    //        &origin_pitch_, &origin_yaw_, &fire_flag_temp);
+    // fire_flag = fire_flag_temp;  //开火位赋值到布尔量
+
+    if ((origin_pitch_ == 0 && origin_pitch_hub == 0 && origin_yaw_ == 0 && origin_yaw_hub_ == 0) ||
+        (HAL_GetTick() - recv_time) > 200) {
+        yaw_increament = 0;
+        pitch_increment = 0;
+        yaw_hub_increment = 0;
+        pitch_hub_increment = 0;
+        fire_flag = false;
+        is_aimed_ = false;
+        return;
+    }
+
     is_aimed_ = false;  //先假设接收失败
 
-    //  =============================== 原来的增量式 ================================
-    //yaw_increment_temp = (float)((origin_yaw_ - 1000) * 0.04f);
-    //pitch_increment_temp = (float)((origin_pitch_ - 1000) * 0.04f);
-    //yaw_hub_increment_temp = (float)((origin_yaw_hub_ - 1000) * 0.04f);
-    //pitch_hub_increment_temp = (float)((origin_pitch_hub - 1000) * 0.04f);
-    //  ============================================================================
-
-    yaw_increment_temp = (float)((origin_yaw_ - 1000) / 10.0f);
-    pitch_increment_temp = (float)((origin_pitch_ - 1000) / 10.0f);
-    yaw_hub_increment_temp = (float)((origin_yaw_hub_ - 1000) / 10.0f);
-    pitch_hub_increment_temp = (float)((origin_pitch_hub - 1000) / 10.0f);
+    yaw_increment_temp = (float)((origin_yaw_ - 5000) / 100.0f);
+    pitch_increment_temp = (float)((origin_pitch_ - 5000) / 100.0f);
+    yaw_hub_increment_temp = (float)((origin_yaw_hub_ - 5000) / 100.0f);
+    pitch_hub_increment_temp = (float)((origin_pitch_hub - 5000) / 100.0f);
 
     if (AbsoluteFilte()) {
         is_aimed_ = true;
@@ -59,28 +58,15 @@ void Vision::RecvUpdate(const uint8_t* buf) {
             pitch_hub_increment = pitch_hub_increment_temp;
 
             //  ============================== 绝对角度 add in 2024/7/22 ============================
-            //if (vision.aim_type_ == kArmor) {
-            //    yaw_target_euler = -yaw_increament + ch110.yaw_integral_;
-            //    pitch_target_euler = -pitch_increment + ch110.roll_;
-            //    ;
-            //} else {
-            //    yaw_target_euler = -yaw_hub_increment + ch110.yaw_integral_;
-            //    pitch_target_euler = -pitch_hub_increment + ch110.roll_;
-            //}
+            if (vision.aim_type_ == kArmor) {
+                yaw_target_euler = -yaw_increament + ch110.yaw_integral_;
+                pitch_target_euler = -pitch_increment + ch110.roll_;
+            } else {
+                yaw_target_euler = -yaw_hub_increment + ch110.yaw_integral_;
+                pitch_target_euler = -pitch_hub_increment + ch110.roll_;
+            }
             //  ====================================================================================
         }
-
-        return;
-    }
-
-    if (origin_pitch_ == 0 || origin_pitch_hub == 0 || origin_yaw_ == 0 || origin_yaw_hub_ == 0 ||
-        (HAL_GetTick() - recv_time) > 200) {
-        yaw_increament = 0;
-        pitch_increment = 0;
-        yaw_hub_increment = 0;
-        pitch_hub_increment = 0;
-        fire_flag = false;
-        is_aimed_ = false;
     }
 }
 

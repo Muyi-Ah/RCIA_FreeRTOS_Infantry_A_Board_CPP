@@ -13,10 +13,10 @@ class Vision {
     bool is_reply = false;
     enum AimType aim_type_;
 
-    float origin_yaw_ = 0;
-    float origin_pitch_ = 0;
-    float origin_yaw_hub_ = 0;
-    float origin_pitch_hub = 0;
+    uint16_t origin_yaw_ = 0;
+    uint16_t origin_pitch_ = 0;
+    uint16_t origin_yaw_hub_ = 0;
+    uint16_t origin_pitch_hub = 0;
 
     float yaw_increment_temp = 0;
     float pitch_increment_temp = 0;
@@ -28,6 +28,7 @@ class Vision {
     float yaw_hub_increment = 0;
     float pitch_hub_increment = 0;
 
+    uint16_t fire_flag_temp = 0;
     bool fire_flag = false;
     bool fire_latch = false;
 

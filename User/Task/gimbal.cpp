@@ -1,28 +1,34 @@
 #include "gimbal.hpp"
+#include "stdint.h"  //stdint.h需要在cmsis_armclang.h前面才能过编译
+#include <cmsis_armclang.h>
+#include "FreeRTOS.h"
 #include "clamp.hpp"
 #include "cmsis_os2.h"
-#include "stdint.h"
+#include "math.h"
 #include "stdlib.h"
 #include "uart.hpp"
 #include "variables.hpp"
 
 /*  =========================== 常量定义 ===========================  */
 
-/*constexpr */ auto kRemoteDeadBand = 10;               //遥控器死区
-/*constexpr */ auto kRemoteYawCoefficient = 0.0004f;    //遥控器YAW响应系数
-/*constexpr */ auto kRemotePitchCoefficient = 0.0001f;  //遥控器PITCH响应系数
-/*constexpr */ auto kMouseYawCoefficient = 0.0003f;     //鼠标YAW响应系数
-/*constexpr */ auto kMousePitchCoefficient = 0.0002f;   //鼠标PITCH响应系数
-/*constexpr */ auto kShotsPerFire = 1;                  //每次射击弹丸数
-/*constexpr */ auto kFrictionRpm = 7000;                //摩擦轮转速
+constexpr auto kRemoteDeadBand = 10;               //遥控器死区
+constexpr auto kRemoteYawCoefficient = 0.0006f;    //遥控器YAW响应系数
+constexpr auto kRemotePitchCoefficient = 0.0001f;  //遥控器PITCH响应系数
+constexpr auto kMouseYawCoefficient = 0.0003f;     //鼠标YAW响应系数
+constexpr auto kMousePitchCoefficient = 0.0002f;   //鼠标PITCH响应系数
+constexpr auto kShotsPerFire = 2;                  //每次射击弹丸数
+constexpr auto kFrictionRpm = 7000;                //摩擦轮转速
 
-float vision_yaw_coefficient = 0.035f;
-float vision_pitch_coefficient = 0.015f;
+constexpr float vision_yaw_coefficient = 0.035f;
+constexpr float vision_pitch_coefficient = 0.015f;
+
+auto kShootingPeriod = 400;
 
 /*  =========================== 函数声明 ===========================  */
 
 static void ORE_Solve();
 void HaltFunction();
+void SubMode00Function();
 void SubMode11Function();
 void SubMode12Function();
 void SubMode13Function();
@@ -37,6 +43,8 @@ void SubStateUpdate();
 static void blocking_check();
 
 /*  =========================== 变量定义 ===========================  */
+
+uint32_t reset_timestamp;
 
 //进入子模式时间戳
 uint32_t enter_mode_11_timestamp;
@@ -66,12 +74,17 @@ int16_t friction_target_rpm = 0;  //摩擦轮目标转速
 int32_t trigger_target_pos = 0;   //拨盘目标位置
 
 bool F_latch;
+bool press_left_latch;
+
+bool friction_is_enable;
 
 void GimbalTask(void* argument) {
     for (;;) {
 
+        //串口ORE消除
         ORE_Solve();
 
+        //子状态更新
         SubStateUpdate();
 
         //状态机
@@ -95,6 +108,15 @@ void GimbalTask(void* argument) {
                         motor_205.is_enable_ = false;
                         motor_206.is_enable_ = false;
                         state_machine.HandleEvent(kEventEnterHalt);
+                        break;
+
+                    case kSubMode00:  //切换到接收机断联模式
+                        SubMode00Function();
+                        motor_201.is_enable_ = true;
+                        motor_202.is_enable_ = true;
+                        motor_204.is_enable_ = false;
+                        motor_205.is_enable_ = false;
+                        motor_206.is_enable_ = false;
                         break;
 
                     case kSubMode11:  //切到维护模式
@@ -204,7 +226,6 @@ void GimbalTask(void* argument) {
                 break;
 
             default:
-                /* code */
                 break;
 
         }  // state machine
@@ -217,9 +238,23 @@ void GimbalTask(void* argument) {
         yaw_target_euler =
             clamp(yaw_target_euler, (ch110.yaw_integral_ - 180.0f), (ch110.yaw_integral_ + 180.0f));
 
+        //判断摩擦轮是否开启
+        if (friction_target_rpm != 0 && abs(motor_201.actual_rpm_) > 1000 &&
+            abs(motor_202.actual_rpm_) > 1000) {
+            friction_is_enable = true;
+        } else {
+            friction_is_enable = false;
+        }
+
         TimeStampClear();  //时间戳清除
 
-        osDelay(1);  //延时
+        // osDelay(1);  //相对时间
+
+        //获取当前系统tick用于绝对定时
+        auto tick = osKernelGetTickCount();
+        tick += pdMS_TO_TICKS(1);
+        //绝对定时
+        osDelayUntil(tick);
     }
 }
 
@@ -233,7 +268,6 @@ static void RemoteTargetHandle() {
 }
 
 void HaltFunction() {
-
     //该阶段下YAW的目标值需与实际值一致
     yaw_target_euler = ch110.yaw_integral_;
     /*pitch_target_euler = clamp(ch110.roll_, -5.0f, 30.0f);*/
@@ -241,7 +275,15 @@ void HaltFunction() {
     //该阶段下拨盘的目标值需与实际值一致
     trigger_target_pos = motor_204.encoder_integral_;
 }
+void SubMode00Function() {
+    friction_target_rpm = 0;
 
+    //该阶段下YAW的目标值需与实际值一致
+    yaw_target_euler = ch110.yaw_integral_;
+
+    //该阶段下拨盘的目标值需与实际值一致
+    trigger_target_pos = motor_204.encoder_integral_;
+}
 void SubMode11Function() {}
 void SubMode12Function() {
     vision.is_use_ = false;  //视觉使用标志位置0
@@ -265,13 +307,11 @@ void SubMode31Function() {
     friction_target_rpm = 0;
     vision.is_use_ = true;  //视觉使用标志位置1
 
-    //if (vision.aim_type_ == kArmor) {
-    //    yaw_target_euler -= vision.yaw_increament * vision_yaw_coefficient;
-    //    pitch_target_euler -= vision.pitch_increment * vision_pitch_coefficient;
-    //} else {
-    //    yaw_target_euler -= vision.yaw_hub_increment * vision_yaw_coefficient;
-    //    pitch_target_euler -= vision.pitch_hub_increment * vision_pitch_coefficient;
-    //}
+    if (dr16.remote_.wheel_ > (1684 - kRemoteDeadBand)) {
+        vision.aim_type_ = kArmor;
+    } else if (dr16.remote_.wheel_ < (364 + kRemoteDeadBand)) {
+        vision.aim_type_ = kRobotHub;
+    }
 }
 void SubMode32Function() {
     vision.is_use_ = true;  //视觉使用标志位置0
@@ -287,6 +327,12 @@ void SubMode32Function() {
     //1秒后
     else if ((current_timestamp - enter_mode_32_timestamp) >= 1000) {
         friction_target_rpm = kFrictionRpm;  //摩擦轮启动
+
+        if (dr16.remote_.wheel_ > (1684 - kRemoteDeadBand)) {
+            vision.aim_type_ = kArmor;
+        } else if (dr16.remote_.wheel_ < (364 + kRemoteDeadBand)) {
+            vision.aim_type_ = kRobotHub;
+        }
 
         if (vision.aim_type_ == kArmor) {
             //每500ms
@@ -346,10 +392,12 @@ void SubMode33Function() {
         if (dr16.mouse_.press_left_ && friction_target_rpm != 0) {
             //每100ms
             if (vision.aim_type_ == kArmor) {
-                if (current_timestamp - mode_33_timestamp >= 50) {
+                if (current_timestamp - mode_33_timestamp >= kShootingPeriod ||
+                    press_left_latch == false) {
                     //假设使用M2006 P36且拨盘每圈6颗弹丸 :8192*36/6=49152
                     trigger_target_pos -= 49152 * kShotsPerFire;
                     mode_33_timestamp = current_timestamp;
+                    press_left_latch = true;
                 }
             } else {
                 if (vision.fire_flag == true && vision.fire_latch == false) {
@@ -361,7 +409,10 @@ void SubMode33Function() {
                     vision.fire_latch = false;
                 }
             }
+        } else if (dr16.mouse_.press_left_ == 0) {
+            press_left_latch = false;
         }
+
         //鼠标右键按下且已瞄准目标
         if (dr16.mouse_.press_right_) {
             vision.is_use_ = true;  //视觉使用标志位置1
@@ -378,6 +429,19 @@ void SubMode33Function() {
         //鼠标纵移
         if (dr16.mouse_.y_axis_) {
             pitch_target_euler += (float)(dr16.mouse_.y_axis_ * kMousePitchCoefficient);
+        }
+
+        if (dr16.KeyBoard_.key_.R_key) {
+            //获取系统时间戳，单位为ms
+            auto current_timestamp_for_reset = HAL_GetTick();
+            if (reset_timestamp == 0) {  //刚进入该模式
+                reset_timestamp = current_timestamp_for_reset;
+            } else if (current_timestamp_for_reset - reset_timestamp > 1000) {
+                __set_FAULTMASK(1);
+                NVIC_SystemReset();
+            }
+        } else if (dr16.KeyBoard_.key_.R_key == 0) {
+            reset_timestamp = 0;
         }
     }
 }
@@ -452,6 +516,12 @@ void TimeStampClear() {
 
 void SubStateUpdate() {
     switch (dr16.remote_.s1_) {
+        case 0:
+            if (dr16.remote_.s2_ == 0) {
+                state_machine.HandleEvent(kEventSwitchSubMode00);
+            }
+            break;
+
         case 1:
             switch (dr16.remote_.s2_) {
                 case 1:
@@ -530,15 +600,15 @@ static void blocking_check() {
     }
     //进行退弹
     if (blocking_flag) {
-        //退弹已超过50ms
-        if (HAL_GetTick() - blocking_time > 100) {
+        //退弹已超300ms
+        if (HAL_GetTick() - blocking_time > 300) {
             blocking_flag = 0;  //清除卡弹标志
         }
         //退弹过程中
         else {
             //实际值跟随目标值 防止恢复瞬间转大角度
             motor_204.encoder_integral_ = trigger_target_pos;
-            motor_204.input_ = 5000;  //反向输出
+            motor_204.input_ = 10000;  //反向输出
         }
     }
 }

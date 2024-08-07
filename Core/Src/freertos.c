@@ -52,21 +52,21 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for gimbalTask */
 osThreadId_t gimbalTaskHandle;
 const osThreadAttr_t gimbalTask_attributes = {
   .name = "gimbalTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for communicationTa */
 osThreadId_t communicationTaHandle;
 const osThreadAttr_t communicationTa_attributes = {
   .name = "communicationTa",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for visionTask */
 osThreadId_t visionTaskHandle;
@@ -74,6 +74,13 @@ const osThreadAttr_t visionTask_attributes = {
   .name = "visionTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for errorHandleTask */
+osThreadId_t errorHandleTaskHandle;
+const osThreadAttr_t errorHandleTask_attributes = {
+  .name = "errorHandleTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityBelowNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -85,6 +92,7 @@ void StartDefaultTask(void *argument);
 extern void GimbalTask(void *argument);
 extern void CommunicationTask(void *argument);
 extern void VisionTask(void *argument);
+extern void ErrorHandleTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -126,6 +134,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of visionTask */
   visionTaskHandle = osThreadNew(VisionTask, NULL, &visionTask_attributes);
+
+  /* creation of errorHandleTask */
+  errorHandleTaskHandle = osThreadNew(ErrorHandleTask, NULL, &errorHandleTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */

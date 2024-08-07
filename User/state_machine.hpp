@@ -8,6 +8,7 @@ enum MainState {
 
 enum SubState {
     kSubStateNone,
+    kSubMode00,
     kSubMode11,
     kSubMode12,
     kSubMode13,
@@ -22,6 +23,7 @@ enum SubState {
 enum Event {
     kEventEnterOperate,
     kEventEnterHalt,
+    kEventSwitchSubMode00,
     kEventSwitchSubMode11,
     kEventSwitchSubMode12,
     kEventSwitchSubMode13,

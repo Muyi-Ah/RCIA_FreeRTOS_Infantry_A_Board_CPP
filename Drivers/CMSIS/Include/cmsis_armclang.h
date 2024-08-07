@@ -749,7 +749,6 @@ __STATIC_FORCEINLINE void __enable_irq(void)
 #ifndef __ARM_COMPAT_H
 __STATIC_FORCEINLINE void __disable_irq(void)
 {
-
   __ASM volatile ("cpsid i" : : : "memory");
 }
 #endif

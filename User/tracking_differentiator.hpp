@@ -11,6 +11,4 @@ class TD {
     float h_ = 0;
 
     float Compute(float u);
-
-   private:
 };

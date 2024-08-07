@@ -68,6 +68,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
     }
 }
 
+extern uint8_t blocking_flag;
 void MainCallBack() {
     /*  =========================== 摩擦轮、拨盘电机控制 ===========================  */
 
@@ -81,20 +82,31 @@ void MainCallBack() {
     auto dji_motor_202_input = pid_vel_202.Compute(-friction_target_rpm, measure_rpm_202);
     motor_202.input_ = dji_motor_202_input;  //设置电机输出
 
-    //拨盘外环PID
-    auto temp_204 = pid_pos_204.Compute(trigger_target_pos, motor_204.encoder_integral_);
+    if (blocking_flag == 0) {
+        //拨盘外环PID
+        auto temp_204 = pid_pos_204.Compute(trigger_target_pos, motor_204.encoder_integral_);
 
-    //拨盘内环PID
-    auto measure_rpm_204 = td_204.Compute(motor_204.actual_rpm_);  //获取微分跟踪器滤波后转速
-    auto dji_motor_204_input = pid_vel_204.Compute(temp_204, measure_rpm_204);
-    motor_204.input_ = dji_motor_204_input;  //设置电机输出
+        //拨盘内环PID
+        auto measure_rpm_204 = td_204.Compute(motor_204.actual_rpm_);  //获取微分跟踪器滤波后转速
+        auto dji_motor_204_input = pid_vel_204.Compute(temp_204, measure_rpm_204);
+        motor_204.input_ = dji_motor_204_input;  //设置电机输出
+    }
 
     /*  =========================== YAW、PITCH电机控制 ===========================  */
+
+    //视觉作用于目标值时需要关闭前馈，不然会有高频振动（不太影响控制但会响声，会影响部件寿命）
+    if (vision.is_use_ && vision.is_aimed_ && vision.is_reply) {
+        pid_pos_205.k_feed_forward_ = 0;
+        pid_pos_206.k_feed_forward_ = 0;
+    } else {
+        pid_pos_205.k_feed_forward_ = kPitchFeedForward;
+        pid_pos_206.k_feed_forward_ = kYawFeedForward;
+    }
 
     //pitch外环PID
     /*auto euler_error_205 = clamp(pitch_target_euler, kLowestEuler, kHighestEuler) - ch110.roll_;*/
     auto temp_205 =
-        pid_pos_205.Compute(clamp(pitch_target_euler, kLowestEuler, kHighestEuler) - ch110.roll_);
+        pid_pos_205.Compute(clamp(pitch_target_euler, kLowestEuler, kHighestEuler), ch110.roll_);
 
     //pitch内环PID
     auto dji_motor_205_input = pid_vel_205.Compute(temp_205, ch110.y_velocity_);
